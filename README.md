@@ -39,7 +39,9 @@ CFG主体函数create_cfg输入根节点和该节点的入边in_nodes，in_nodes
 ![Alt text](image/CFG.png)
 
 ## 生成CDG
-CDG.py继承自CFG类，能够生成控制依赖图，采用上世纪80年代的古老算法，对CFG先求反向图，加上exit到entry的边，然后求以exit为根节点的任意子树，再根据反向CFG和子树T得到后支配树PDT，最后根据反向CFG和PDT生成支配边界，即CDG，具体算法请参考：https://blog.csdn.net/Dong_HFUT/article/details/121492818?spm=wolai.workspace.0.0.477036c4rNeEPV，运行下面代码能够获得CDG图：
+CDG.py继承自CFG类，能够生成控制依赖图，采用上世纪80年代的古老算法，对CFG先求反向图，加上exit到entry的边，然后求以exit为根节点的任意子树，再根据反向CFG和子树T得到后支配树PDT，最后根据反向CFG和PDT生成支配边界，即CDG，具体算法请参考：https://blog.csdn.net/Dong_HFUT/article/details/121492818?spm=wolai.workspace.0.0.477036c4rNeEPV
+
+运行下面代码能够获得CDG图：
 ```
 cdg = CDG('c', code)
 cdg.see_graph(view=True)
