@@ -1,66 +1,57 @@
-def detect_cycles(graph):
-    visited = set()
-    stack = []
-    cycles = []
+from igraph import Graph
+from graphviz import Digraph
+import igraph
 
-    def dfs(node):
-        if node in stack:
-            cycle = stack[stack.index(node):]
-            cycles.append(cycle)
-            return
-        if node in visited:
-            return
+# 随机生成一个图
+g = Graph(directed=True)
+g1 = Graph(directed=True)
 
-        visited.add(node)
-        stack.append(node)
+g.add_vertex('one', id=1)
+g.add_vertex('two', id=2)
+g.add_vertex('three', id=3)
+g.add_vertex('four', id=4)
+# g.add_edge('one', 'two', label='one-two')
+# g.add_edge('two', 'three', label='two-three')
+# g.add_edge('three', 'four', label='three-four')
 
-        for neighbor in graph.get(node, []):
-            dfs(neighbor)
+edges = [('one','two'), ('two','three'), ('three','four')]
+property = {'label': ['one-two', 'two-three', 'three-four']}
+g.add_edges(edges, property)
+print(g.vs['one'].out_edges())
 
-        stack.pop()
+# g1.add_vertex('three', id=3)
+# g1.add_vertex('five', id=5)
+# g1.add_vertex('six', id=6)
+# g1.add_vertex('seven', id=7)
+# g1.add_vertex('eight', id=8)
+# g1.add_edge('five', 'six', label='five-six')
+# g1.add_edge('six', 'seven', label='six-seven')
+# g1.add_edge('seven', 'eight', label='seven-eight')
 
-    for node in graph:
-        dfs(node)
+def draw(graph):
+    dot = Digraph()
+    for node in graph.vs:
+        label = node['name']
+        dot.node(node['name'], label=label)
+    for edge in graph.es:
+        dot.edge(graph.vs[edge.source]['name'], graph.vs[edge.target]['name'], label=edge['label'])
+    dot.render('pdf/graph', view=True, cleanup=True)
 
-    return cycles
+# def print_graph(graph):
+#     for node in graph.vs:
+#         print(node.index, node.attributes())
+#     for edge in graph.es:
+#         print(edge.index, graph.vs[edge.source]['name'], graph.vs[edge.target]['name'], edge.attributes())
+#     print('---------------------------------')
+# print(g)
+# print(g1)
+# u = g.union(g1)
 
-# 字典表示的图，键是文件名，值是包含的文件列表
-file_graph = {
-    '3rd/lua/lapi.c': ['3rd/lua/lapi.h', '3rd/lua/ldebug.h', '3rd/lua/ldo.h', '3rd/lua/lgc.h', '3rd/lua/lstate.h', '3rd/lua/lstring.h', '3rd/lua/ltm.h', '3rd/lua/lvm.h'],
-    '3rd/lua/lapi.h': ['3rd/lua/lstate.h'],
-    '3rd/lua/lcode.c': ['3rd/lua/ldebug.h', '3rd/lua/ldo.h', '3rd/lua/lgc.h', '3rd/lua/lstring.h', '3rd/lua/lvm.h'],
-    '3rd/lua/ldebug.c': ['3rd/lua/lapi.h', '3rd/lua/ldebug.h', '3rd/lua/ldo.h', '3rd/lua/lstate.h', '3rd/lua/lstring.h', '3rd/lua/ltm.h', '3rd/lua/lvm.h'],
-    '3rd/lua/ldebug.h': ['3rd/lua/lstate.h'],
-    '3rd/lua/ldo.c': ['3rd/lua/lapi.h', '3rd/lua/ldebug.h', '3rd/lua/ldo.h', '3rd/lua/lgc.h', '3rd/lua/lstate.h', '3rd/lua/lstring.h', '3rd/lua/ltm.h', '3rd/lua/lvm.h'],
-    '3rd/lua/ldo.h': ['3rd/lua/lstate.h'],
-    '3rd/lua/ldump.c': ['3rd/lua/lstate.h'],
-    '3rd/lua/lfunc.c': ['3rd/lua/ldebug.h', '3rd/lua/ldo.h', '3rd/lua/lgc.h', '3rd/lua/lstate.h', '3rd/lua/lstring.h'],
-    '3rd/lua/lgc.c': ['3rd/lua/ldebug.h', '3rd/lua/ldo.h', '3rd/lua/lgc.h', '3rd/lua/lstate.h', '3rd/lua/lstring.h', '3rd/lua/ltm.h'],
-    '3rd/lua/lgc.h': ['3rd/lua/lstate.h'],
-    '3rd/lua/llex.c': ['3rd/lua/ldebug.h', '3rd/lua/ldo.h', '3rd/lua/lgc.h', '3rd/lua/lstate.h', '3rd/lua/lstring.h'],
-    '3rd/lua/lmem.c': ['3rd/lua/ldebug.h', '3rd/lua/ldo.h', '3rd/lua/lgc.h', '3rd/lua/lstate.h'],
-    '3rd/lua/lobject.c': ['3rd/lua/ldebug.h', '3rd/lua/ldo.h', '3rd/lua/lstate.h', '3rd/lua/lstring.h', '3rd/lua/lvm.h'],
-    '3rd/lua/lparser.c': ['3rd/lua/ldebug.h', '3rd/lua/ldo.h', '3rd/lua/lstate.h', '3rd/lua/lstring.h'],
-    '3rd/lua/lstate.c': ['3rd/lua/lapi.h', '3rd/lua/ldebug.h', '3rd/lua/ldo.h', '3rd/lua/lgc.h', '3rd/lua/lstate.h', '3rd/lua/lstring.h', '3rd/lua/ltm.h'],
-    '3rd/lua/lstate.h': ['3rd/lua/ltm.h'],
-    '3rd/lua/lstring.c': ['3rd/lua/ldebug.h', '3rd/lua/ldo.h', '3rd/lua/lstate.h', '3rd/lua/lstring.h'],
-    '3rd/lua/lstring.h': ['3rd/lua/lgc.h', '3rd/lua/lstate.h'],
-    '3rd/lua/ltable.c': ['3rd/lua/ldebug.h', '3rd/lua/ldo.h', '3rd/lua/lgc.h', '3rd/lua/lstate.h', '3rd/lua/lstring.h', '3rd/lua/lvm.h'],
-    '3rd/lua/ltests.c': ['3rd/lua/lapi.h', '3rd/lua/ldebug.h', '3rd/lua/ldo.h', '3rd/lua/lstate.h', '3rd/lua/lstring.h'],
-    '3rd/lua/ltm.c': ['3rd/lua/ldebug.h', '3rd/lua/ldo.h', '3rd/lua/lgc.h', '3rd/lua/lstate.h', '3rd/lua/lstring.h', '3rd/lua/ltm.h', '3rd/lua/lvm.h'],
-    '3rd/lua/ltm.h': ['3rd/lua/lstate.h'],
-    '3rd/lua/luac.c': ['3rd/lua/ldebug.h', '3rd/lua/lstate.h'],
-    '3rd/lua/lundump.c': ['3rd/lua/ldebug.h', '3rd/lua/ldo.h', '3rd/lua/lstring.h'],
-    '3rd/lua/lvm.c': ['3rd/lua/ldebug.h', '3rd/lua/ldo.h', '3rd/lua/lgc.h', '3rd/lua/lstate.h', '3rd/lua/lstring.h', '3rd/lua/ltm.h', '3rd/lua/lvm.h'],
-    '3rd/lua/lvm.h': ['3rd/lua/ldo.h', '3rd/lua/ltm.h'],
-    'A': ['B'],
-    'B': ['C'],
-    'C': ['A']
-}
+# u.add_edge('four', 'five', label='four-five')
+draw(g)
+# # print(u)
+# # print_graph(g)
+# # print_graph(g1)
+# # print_graph(u)
 
-
-cycle = detect_cycles(file_graph)
-if cycle:
-    print("存在环路:", cycle)
-else:
-    print("不存在环路")
+# help(igraph.Graph.union)

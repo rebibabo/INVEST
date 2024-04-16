@@ -1,173 +1,117 @@
 from CFG import *
-from utils import *
-from graphviz import Graph
+import copy
 
-class Tree:
-    def __init__(self, V, children, root):  # 输入节点集合，children为字典，key为节点，value为子节点列表，根节点
-        self.vertex = V
-        self.children = children
-        self.root = root
-        self.parent = {}
-        for node in children:   # 初始化parent字典
-            for each in children[node]:
-                self.parent[each] = node
-        self.parent[root] = root
-        for v in V:
-            if v not in self.children:
-                self.children[v] = []
-        self.depth = self.get_nodes_depth(root, {root:0})    
+def reverse(cfg):
+    reverse_cfg = copy.deepcopy(cfg)
+    reverse_cfg.delete_edges(reverse_cfg.get_edgelist())
+    for edge in cfg.es:
+        source, target, label = edge.source, edge.target, edge['label']
+        reverse_cfg.add_edge(target, source, label=label)
+    exit_node = reverse_cfg.vs.find(type='function_exit')
+    func_node = reverse_cfg.vs.find(type='function_definition')
+    reverse_cfg.add_edge(exit_node, func_node, label='')  # 添加一个从Exit到函数入口的边
+    return reverse_cfg
 
-    def get_nodes_depth(self, root, depth):
-        # 递归计算每个节点的深度
-        for child in self.children[root]:
-            depth[child] = depth[root] + 1
-            depth = self.get_nodes_depth(child, depth)
-        return depth
+def get_subTree(cfg):   # 按照广度优先遍历，找出一个子树
+    exit_node = cfg.vs.find(type='function_exit')
+    visited = {v.index:False for v in cfg.vs}
+    queue = [exit_node]
+    visited[exit_node] = True
+    subTree = copy.deepcopy(cfg)
+    subTree.delete_edges(subTree.get_edgelist())
+    while queue:
+        node = queue.pop()
+        if not cfg.successors(node):
+            continue
+        for succ in cfg.successors(node):
+            if not visited[succ]:
+                queue.append(succ)
+                visited[succ] = True
+                subTree.add_edge(node, succ, label='')
+    return subTree
 
-    def get_lca(self, a, b):
-        # 计算a,b的最近公共祖先
-        if self.depth[a] > self.depth[b]:
-            diff = self.depth[a] - self.depth[b]
-            while diff > 0:
-                a = self.parent[a]
-                diff -= 1
-        elif self.depth[a] < self.depth[b]:
-            diff = self.depth[b] - self.depth[a]
-            while diff > 0:
-                b = self.parent[b]
-                diff -= 1
-        while a != b:
-            a = self.parent[a]
-            b = self.parent[b]
-        return a
-
-    def reset_by_parent(self):
-        # 根据parent字典重置children字典
-        self.children = {v:[] for v in self.vertex}
-        for node in self.parent:
-            if node != self.parent[node]:
-                self.children[self.parent[node]].append(node)
-
-    def see_tree(self):
-        dot = Graph(comment='Tree')
-        for node in self.vertex:
-            dot.node(str(node), shape='rectangle', label=str(node), fontname='fangsong')
-        for node in self.children:
-            for child in self.children[node]:
-                dot.edge(str(node), str(child))
-        dot.view()
-
-class CDG(CFG):
-    def get_subTree(self, cfg):
-        # 按照广度优先遍历，找出一个子树
-        V, E, Exit = cfg.nodes, cfg.edges, cfg.Exit
-        visited = {v:False for v in V}
-        queue = [Exit]
-        visited[Exit] = True
-        subTree = {}
-        while queue:
-            node = queue.pop()
-            if node not in E:
+def post_dominator_tree(cfg, subTree):  # 生成后支配树
+    PDT = copy.deepcopy(subTree)
+    changed = True
+    exit_node = cfg.vs.find(type='function_exit')
+    while changed:
+        changed = False
+        for v in cfg.vs:
+            if v['type'] == 'function_exit':
                 continue
-            for edge in E[node]:
-                v = edge.id
-                if not visited[v]:
-                    queue.append(v)
-                    visited[v] = True
-                    subTree.setdefault(node, [])
-                    subTree[node].append(v)
-        return subTree
+            for u in cfg.predecessors(v.index):
+                parent_v = PDT.predecessors(v.index)[0]
+                # 寻找这两个节点的最近公共祖先
+                v_path = PDT.get_shortest_paths(exit_node.index, parent_v)
+                u_path = PDT.get_shortest_paths(exit_node.index, u)
+                v_lines = [PDT.vs[i].index for i in v_path[0]]
+                u_lines = [PDT.vs[i].index for i in u_path[0]]
+                for a, b in zip(v_lines, u_lines):
+                    if a != b:
+                        break
+                    lca = a
+                if u != parent_v and parent_v != lca:
+                    PDT.add_edge(lca, v.index)
+                    PDT.delete_edges(PDT.get_eid(parent_v, v.index))
+                    changed = True
+    return PDT
+
+def dominance_frontier(reverse_cfg, PDT):   # 计算支配边界
+    CDG = copy.deepcopy(reverse_cfg)
+    CDG.delete_edges(CDG.get_edgelist())
+    for v in reverse_cfg.vs:
+        preds = reverse_cfg.predecessors(v)
+        if len(preds) >= 2:     # 有多个分支
+            for runner in preds:
+                while runner != PDT.predecessors(v)[0]:
+                    CDG.add_edge(v.index, runner)
+                    runner = PDT.predecessors(runner)[0]
+    return CDG
         
-    def get_prev(self, cfgs):
-        # 计算每个节点的前驱节点
-        prev = {}
-        for cfg in cfgs:
-            for node, edges in cfg.edges.items():
-                prev.setdefault(node, [])
-                for next_node in edges:
-                    id = next_node.id
-                    prev.setdefault(id, [])
-                    prev[id].append(node)
-        return prev
+class CDG:
+    def __init__(self, cfg):
+        self.cfg = cfg
+        self.cdgs = {}
 
-    def post_dominator_tree(self, cfgs, prev):
-        # 生成后支配树
-        PDT = []
-        for cfg in cfgs:    # 遍历每一个函数的CFG
-            subTree = self.get_subTree(cfg)   # 找出一个子树
-            V, root = cfg.nodes, cfg.Exit
-            tree = Tree(V, subTree, root)  # 生成树
-            changed = True
-            while changed:
-                changed = False
-                for v in V: # dominator tree算法
-                    if v != root:
-                        for u in prev[v]:
-                            parent_v = tree.parent[v]
-                            if u not in tree.vertex:
-                                cfg.see_graph()
-                            if u != parent_v and parent_v != tree.get_lca(u, parent_v):
-                                tree.parent[v] = tree.get_lca(u, parent_v)
-                                changed = True
-            tree.reset_by_parent()  # 根据parent字典重置children字典
-            PDT.append(tree)
-        return PDT
+    @timer
+    def construct_cdg(self):
+        # 参考文章 https://blog.csdn.net/Dong_HFUT/article/details/121492818?spm=wolai.workspace.0.0.477036c4rNeEPV
+        for funcname, cfg in self.cfg.cfgs.items():
+            print(f'constructing CDG for {funcname:>40}', end='\r')
+            reverse_cfg = reverse(cfg)
+            subTree = get_subTree(reverse_cfg)
+            PDT = post_dominator_tree(reverse_cfg, subTree)
+            CDG = dominance_frontier(reverse_cfg, PDT)
+            self.cdgs[funcname] = CDG
+        print(f'{"finish constructing CDG":-^70}')
 
-    def dominance_frontier(self, code):
-        # 输入代码，返回CFG和支配边界
-        cfgs = self.see_cfg(code)
-        reverse_cfgs = [cfg.reverse() for cfg in cfgs]  # 计算逆向CFG
-        prev = self.get_prev(reverse_cfgs)  # 计算每个节点的前驱节点
-        PDT = self.post_dominator_tree(reverse_cfgs, prev)  # 输入逆向CFG，输出后支配树
-        DF = []
-        for cfg, tree in zip(reverse_cfgs, PDT):
-            V = cfg.nodes
-            DF.append({v:[] for v in V})
-            for v in V:
-                if len(prev[v]) > 1:
-                    for p in prev[v]:
-                        runner = p
-                        while runner != tree.parent[v]:
-                            DF[-1][runner].append(v)
-                            runner = tree.parent[runner]
-        return cfgs, DF
-
-    def construct_cdg(self, code):
-        # 输入代码，返回CDG
-        cfgs, DF = self.dominance_frontier(code)
-        self.cdgs = []
-        for cfg, df in zip(cfgs, DF):
-            for v in df:
-                df[v] = [Edge(u, type='CDG') for u in df[v]]
-            cfg.edges = df
-            self.cdgs.append(cfg)
-        return self.cdgs
-
-    def see_cdg(self, code, filename='CDG', pdf=True, view=False):
-        self.construct_cdg(code)
-        # dot = Digraph(comment=filename, strict=True)
-        dot = Digraph(comment=filename, strict=True, format='pdf', graph_attr={'rankdir':'LR'})
-        for cdg in self.cdgs:
-            for n in cdg.edges:
-                if n < 0:
-                    continue
-                node = cdg.id_to_nodes[n]
-                label = f"<({node.type}, {html.escape(node.text)})<SUB>{node.line}</SUB>>"
-                if node.is_branch:
-                    dot.node(str(node.id), shape='diamond', label=label, fontname='fangsong')
-                elif node.type == 'function_definition':
-                    dot.node(str(node.id), label=label, fontname='fangsong')
+    def see_graph(self, pdf=True, view=True):
+        self.construct_cdg()
+        for funcname, cdg in self.cdgs.items():
+            dot = Digraph(strict=True)
+            exit_node = cdg.vs.find(type='function_exit')
+            cdg.delete_vertices(exit_node.index)
+            for node in cdg.vs:
+                label = html.escape(node['text']) + '\\n' + f"{node['type']} | {node.index}"
+                if node['is_branch']:
+                    dot.node(node['id'], shape='diamond', label=label, fontname='fangsong')
+                elif node['type'] == 'function_definition':
+                    dot.node(node['id'], label=label, fontname='fangsong')
+                elif node['type'] == 'function_exit':
+                    dot.node(node['id'], label='exit | ' + str(node.index), fontname='fangsong')
                 else:
-                    dot.node(str(node.id), shape='rectangle', label=label, fontname='fangsong')
-            for v in cdg.edges:
-                for u in cdg.edges[v]:
-                    dot.edge(str(u.id), str(v))
-        if pdf:
-            dot.render(filename, view=view, cleanup=True)
+                    dot.node(node['id'], shape='rectangle', label=label, fontname='fangsong')
+            for edge in cdg.es:
+                next_node, label = edge.target, edge['label'] if 'label' in edge.attributes() else ''
+                dot.edge(cdg.vs[edge.source]['id'], cdg.vs[next_node]['id'], label=label)
+            if pdf:
+                dot.render(f'pdf/{funcname}', view=view, cleanup=True, format='pdf')
+                dot.clear()
 
 if __name__ == '__main__':
     code = r'{}'.format(open('test.c', 'r', encoding='utf-8').read())
-    cdg = CDG('c')
-    # cdg.see_cfg(code, view=True)
-    cdg.see_cdg(code, view=True)
+    cfg = CFG('c', code)
+    cfg.construct_cfg()
+    cdg = CDG(cfg)
+    cdg.see_graph(view=True)
 

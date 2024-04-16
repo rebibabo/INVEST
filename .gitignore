@@ -1,8 +1,9 @@
 *.pdf
 build
 __pycache__
-test.c
 test
+test*
 .vscode
 *.gv
 pdf
+*.pkl
