@@ -285,7 +285,7 @@ class CFG(AST):
 if __name__ == '__main__':
     code = r'{}'.format(open('test.c', 'r', encoding='utf-8').read())
     cfg = CFG('c', code)
-    # cfg.see_graph(view=True)
+    cfg.see_graph(view=True)
     cfg.construct_cfg()
 
 '''

@@ -55,7 +55,8 @@ class CG(AST):
         dot = Digraph(strict=True)
         for node in self.cg.vs:
             # label = f'name: {node["func_name"]}\\nline: {node["line"]}\\ntype: {node["type"]}\\nparameters: {node["parameters"]}'
-            label = f'name: {node["func_name"]}\\nline: {node["line"]}'
+            parameters = ' | '.join([f'{param["type"]} {param["param"]}' for param in node["parameters"]])
+            label = f'name: {node["func_name"]}\\nline: {node["line"]}\\ntype: {node["type"]}\\nparameters: {parameters}'
             if node.indegree() or node.outdegree():
                 dot.node(node['func_id'], label=label, fontname='fangsong', shape='rectangle')
         for edge in self.cg.es:
@@ -85,6 +86,6 @@ if __name__ == '__main__':
     code = r'{}'.format(open('test.c', 'r', encoding='utf-8').read())
     cfg = CFG('c', code)
     cg = CG(cfg)
-    # cg.see_graph()
+    cg.see_graph()
     cg.construct_cg()
     # print(cg)

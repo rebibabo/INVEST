@@ -258,8 +258,8 @@ if __name__ == '__main__':
     cfg = CFG('c', code)
     cfg.construct_cfg()
     ddg = DDG(cfg)
-    # ddg.construct_ddg()
-    # ddg.see_graph(view=True)
+    ddg.construct_ddg()
+    ddg.see_graph(view=True)
     code = '&h->pkt.nals[i]'
     tree_node = ddg.cfg.parser.parse(code.encode('utf-8')).root_node
     id = Identifier(tree_node)
