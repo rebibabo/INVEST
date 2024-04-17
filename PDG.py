@@ -41,7 +41,7 @@ class PDG(CFG):
         print('---------------------------------')
     
     @timer
-    def interprocedual_analysis(self, save=False):
+    def interprocedual_analysis(self, save=False):  # 进行跨函数分析，加上了call边和return边，其中call边为第i个实参所使用的变量到第i个形参，return边为返回值到调用点
         print(f'{"constructing interprocedual PDG":-^70}')
         edges, e_properties = [], {'type':[], 'label':[]}
         ipdg = Graph(directed=True)
@@ -71,22 +71,6 @@ class PDG(CFG):
                     e_properties['label'].append(return_node_id['return_var'])
         ipdg.add_edges(edges, e_properties)
         self.ipdg = ipdg
-
-    def merge(self, graph, funcname):
-        for node in graph.vs:
-            properties = node.attributes()
-            if node['id'] not in self.nodes:
-                self.nodes.add(node['id'])
-                properties = node.attributes()
-                del properties['name']
-                properties['funcname'] = funcname
-                new_node = self.ipdg.add_vertex(node['id'], **properties)
-                self.old_to_new[node.index] = new_node.index
-        for edge in graph.es:
-            s_id, d_id, label = graph.vs[edge.source]['id'], graph.vs[edge.target]['id'], edge['label']
-            if (s_id, d_id, label) not in self.edges:
-                self.edges.add((s_id, d_id, label))
-                self.ipdg.add_edge(self.old_to_new[edge.source], self.old_to_new[edge.target], **edge.attributes())
 
     def draw_graph(self, graph):
         dot = Digraph()

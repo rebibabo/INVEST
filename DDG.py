@@ -18,26 +18,26 @@ class Identifier:
         if not node:
             return
         if node.type == 'identifier' and node.parent.type != 'call_expression':
-            if type == 'index':
+            if type == 'index':     # a[i]中的i
                 self.index_ids.add(text(node))
-            if node.parent.type == 'declaration' or type == 'def':
+            if node.parent.type == 'declaration' or type == 'def':  # 定义变量 int a=1中的a
                 self.def_ids.add(text(node))
-            elif type == 'field':
+            elif type == 'field':   # a->b中的a
                 self.field_ids.add(text(node))
-            elif type == 'update':
+            elif type == 'update':  # a++中的a
                 self.ids.add(text(node))
                 self.def_ids.add(text(node))
-            else:
+            else:   # 普通变量
                 self.ids.add(text(node))
-        elif node.type == 'declaration':
+        elif node.type == 'declaration':    # int a, b=1;
             for child in node.children[1:-1]:
                 if child.type != ',':
                     self.traverse(child, 'def')
-        elif node.type == 'pointer_expression':
+        elif node.type == 'pointer_expression': # *p
             self.traverse(node.children[1], type)
-        elif node.type == 'pointer_declarator':
+        elif node.type == 'pointer_declarator': # int *p
             self.traverse(node.children[1], 'def')
-        elif node.type == 'field_expression':
+        elif node.type == 'field_expression':   # a->b.c
             node_text = text(node).replace(' ', '')
             if type == 'def':
                 self.def_ids.add(node_text)
@@ -48,7 +48,7 @@ class Identifier:
             else:
                 self.field_ids.add(node_text)
                 self.traverse(node.children[0], 'field')
-        elif node.type == 'subscript_expression':
+        elif node.type == 'subscript_expression':   # a[i][j]
             node_text = text(node).replace(' ', '')
             if type == 'def':
                 self.def_ids.add(node_text)
@@ -56,21 +56,21 @@ class Identifier:
                 self.traverse(node.children[0], type)
                 self.traverse(node.children[2], 'index')
                 self.array_ids.add(node_text)
-        elif node.type == 'array_declarator':
+        elif node.type == 'array_declarator':   # int a[n];
             self.traverse(node.children[0], 'def')
             self.traverse(node.children[2], 'index')
-        elif node.type == 'assignment_expression':
+        elif node.type == 'assignment_expression':  # a=b;/a+=b
             if text(node.children[1]) != '=':
                 self.traverse(node.child_by_field_name('left'), 'update')
             else:
                 self.traverse(node.child_by_field_name('left'), 'def')
             self.traverse(node.child_by_field_name('right'), type)
-        elif node.type == 'update_expression':
+        elif node.type == 'update_expression':  # a++
             self.traverse(node.child_by_field_name('argument'), 'update')
-        elif node.type == 'init_declarator':
+        elif node.type == 'init_declarator':    # int a=1;
             self.traverse(node.child_by_field_name('declarator'), 'def')
             self.traverse(node.child_by_field_name('value'), '')
-        elif node.type == 'call_expression':
+        elif node.type == 'call_expression':    # func(a, b)
             func_name = text(node.child_by_field_name('function'))
             if func_name == 'scanf':
                 self.traverse(node.child_by_field_name('arguments'), 'def')
@@ -111,7 +111,7 @@ class DDG:
             for child in node.children[1:-1]:
                 out_state = self.create_ddg(child, in_state)
                 in_state = out_state
-        elif node.type == 'if_statement':
+        elif node.type == 'if_statement':   # if语句输出的状态需要合并True分支和False分支的状态，如果没有else，则False分支为if语句的in状态
             condition = node.child_by_field_name('condition')
             id = Identifier(condition)
             for id_node in id.ids:
@@ -126,7 +126,7 @@ class DDG:
                 in_state = self.merge_state(true_path_state, false_path_state)
             else:
                 in_state = self.merge_state(true_path_state, in_state)
-        elif node.type == 'while_statement':
+        elif node.type == 'while_statement':        # 对于所有循环语句的状态，需要合并循环体的两次状态，因为循环体可能会执行多次，后面定义的语句可能会影响前面使用的语句
             condition = node.child_by_field_name('condition')
             id = Identifier(condition)
             for id_node in id.ids:
@@ -187,7 +187,7 @@ class DDG:
 
             for def_id in Id.def_ids:
                 self.add_def_use_edge(in_state, def_id, node.start_point[0] + 1)
-                in_state[def_id] = set([node.start_point[0] + 1])
+                in_state[def_id] = set([node.start_point[0] + 1])   # 对于这一行定义的节点，要Kill掉前面所有的定义状态
 
         # input(text(node))
         # input(in_state)
@@ -195,7 +195,7 @@ class DDG:
         out_state = in_state
         return out_state
 
-    def merge_state(self, in_state, *out_states):
+    def merge_state(self, in_state, *out_states):   # 合并多个状态，取并集
         out_state = in_state
         for state in out_states:
             for key, value in state.items():
@@ -205,8 +205,8 @@ class DDG:
                     out_state[key] = value
         return out_state
 
-    def add_def_use_edge(self, state, varname, cur_line):
-        if varname not in state:
+    def add_def_use_edge(self, state, varname, cur_line):   # 增加def到use的边
+        if varname not in state:    
             return
         for line in state[varname]:
             self.dict.add((varname, line, cur_line))
