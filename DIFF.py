@@ -165,7 +165,8 @@ class DIFF():
                     if right_node.type == 'call_expression':
                         node = right_node
                     elif right_node.type == 'assignment_expression': # 赋值语句存在嵌套的情况 a=b= 0xffff;
-                        id_nodes.update(helper(right_node))
+                        right_node_ids = helper(right_node)
+                        id_nodes[line].extend(right_node_ids[line])
                 if node.type == 'call_expression':
                     ids = Identifier(node)
                     for id in ids:
