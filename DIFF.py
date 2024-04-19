@@ -158,8 +158,8 @@ class DIFF():
                     node = node.children[0]
                 if node.type == 'assignment_expression':
                     ids = Identifier(node)
+                    line = node.start_point[0] + 1
                     for id in ids:
-                        line = node.start_point[0] + 1
                         id_nodes[line].append(CV(id,line,'assignment',change_type))
                     right_node = node.child_by_field_name('right')  # 如果赋值语句右边是函数调用，则继续提取
                     if right_node.type == 'call_expression':
