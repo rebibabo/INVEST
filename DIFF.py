@@ -153,8 +153,9 @@ class DIFF():
                 for id in ids:
                     line = node.start_point[0] + 1
                     id_nodes[line].append(CV(id,line,'declaration',change_type))
-            elif node.type == 'expression_statement':
-                node = node.children[0]
+            elif node.type in ['expression_statement','assignment_expression']: 
+                if node.type == 'expression_statement':
+                    node = node.children[0]
                 if node.type == 'assignment_expression':
                     ids = Identifier(node)
                     for id in ids:
@@ -163,6 +164,8 @@ class DIFF():
                     right_node = node.child_by_field_name('right')  # 如果赋值语句右边是函数调用，则继续提取
                     if right_node.type == 'call_expression':
                         node = right_node
+                    elif right_node.type == 'assignment_expression': # 赋值语句存在嵌套的情况 a=b= 0xffff;
+                        id_nodes.update(helper(right_node))
                 if node.type == 'call_expression':
                     ids = Identifier(node)
                     for id in ids:
@@ -240,8 +243,8 @@ class DIFF():
                     break
      
 if __name__ == '__main__':
-    old_code = r'{}'.format(open('./data/CVE-2013-4483_SYSCALL-DEFINE4/CVE-2013-4483_CWE-189_SYSCALL-DEFINE4_1.c_OLD.c', 'r', encoding='utf-8').read())
-    new_code = r'{}'.format(open('./data/CVE-2013-4483_SYSCALL-DEFINE4/CVE-2013-4483_CWE-189_SYSCALL-DEFINE4_1.c_NEW.c', 'r', encoding='utf-8').read())
+    old_code = r'{}'.format(open('./data/CVE-2013-6376_recalculate-apic-map/CVE-2013-6376_CWE-189_recalculate-apic-map_1.c_OLD.c', 'r', encoding='utf-8').read())
+    new_code = r'{}'.format(open('./data/CVE-2013-6376_recalculate-apic-map/CVE-2013-6376_CWE-189_recalculate-apic-map_1.c_NEW.c', 'r', encoding='utf-8').read())
 
-    diff = DIFF('c', old_code,new_code, './data/CVE-2013-4483_SYSCALL-DEFINE4/CVE-2013-4483_CWE-189_SYSCALL-DEFINE4_1.c.diff')
+    diff = DIFF('c', old_code,new_code, './data/CVE-2013-6376_recalculate-apic-map/CVE-2013-6376_CWE-189_recalculate-apic-map_1.c.diff')
     print(diff)
