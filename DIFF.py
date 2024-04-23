@@ -3,6 +3,7 @@ from CFG import *
 from typing import Dict
 import difflib
 from collections import defaultdict
+import logging
 
 def Identifier(node):
     ids = set()
@@ -69,17 +70,20 @@ class DIFF():
         with open(diff_path, 'r', encoding='utf-8') as f:
             diff_lines = f.readlines()
         old_lines, new_lines, func_names = self.preprocess(diff_lines)
-        for i in range(0,len(func_names)):
-            old_func = self.old_ast.functions[func_names[i]]
-            new_func = self.new_ast.functions[func_names[i]]
-            if old_lines[i]:
-                old_cv_dict =  self.get_cruial_variable_lines(old_lines[i], old_func, "delete")
-            if new_lines[i]:
-                new_cv_dict = self.get_cruial_variable_lines(new_lines[i], new_func, "add")
-            # 对关键变量匹配结果进行去重
-            self.remove_duplicates(old_cv_dict,new_cv_dict)
-            self.old_cv.update(old_cv_dict)
-            self.new_cv.update(new_cv_dict)
+        if len(func_names)==0:
+            logging.debug(f"this diff file has no motified function in {diff_path}") # 存在只修改结构体定义等情况
+        else:
+            for i in range(0,len(func_names)):
+                old_func = self.old_ast.functions[func_names[i]]
+                new_func = self.new_ast.functions[func_names[i]]
+                if old_lines[i]:
+                    old_cv_dict =  self.get_cruial_variable_lines(old_lines[i], old_func, "delete")
+                if new_lines[i]:
+                    new_cv_dict = self.get_cruial_variable_lines(new_lines[i], new_func, "add")
+                # 对关键变量匹配结果进行去重
+                self.remove_duplicates(old_cv_dict,new_cv_dict)
+                self.old_cv.update(old_cv_dict)
+                self.new_cv.update(new_cv_dict)
         self.old_cv = {k:v for k,v in self.old_cv.items() if v != []}
         self.new_cv = {k:v for k,v in self.new_cv.items() if v != []}
     
@@ -112,11 +116,14 @@ class DIFF():
             old_start_line = int(old[1:].split(',')[0])
             new_start_line = int(new[1:].split(',')[0])
             # 通过old行号在old.c文件中获取函数名
+            func_name = ''
             for node in self.old_ast.function_nodes:
                 if old_start_line > node.start_point[0] and old_start_line < node.end_point[0]:
                     funcnode = self.old_ast.query(node, types='function_declarator', nest=False)[0]
                     func_name = text(funcnode.child_by_field_name('declarator'))
                     func_names.append(func_name)
+            if func_name == '':
+                logging.debug(f'can not get func_name for this diff_hunk: {diff_info}')
             old_offset, new_offset = 0, 0
             old_line, new_line = [], []
             for line in block[1:]:
@@ -248,6 +255,6 @@ class DIFF():
 if __name__ == '__main__':
     old_code = r'{}'.format(open('./data/CVE-2013-6376_recalculate-apic-map/CVE-2013-6376_CWE-189_recalculate-apic-map_1.c_OLD.c', 'r', encoding='utf-8').read())
     new_code = r'{}'.format(open('./data/CVE-2013-6376_recalculate-apic-map/CVE-2013-6376_CWE-189_recalculate-apic-map_1.c_NEW.c', 'r', encoding='utf-8').read())
-
+    logging.basicConfig(filename='./diff.log', level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
     diff = DIFF('c', old_code,new_code, './data/CVE-2013-6376_recalculate-apic-map/CVE-2013-6376_CWE-189_recalculate-apic-map_1.c.diff')
     print(diff)
