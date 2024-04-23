@@ -83,9 +83,9 @@ class AST:
         # self.preprocess_code(code)
         self.code = code
         self.root_node = self.parser.parse(bytes(code, 'utf8')).root_node
-        function_nodes = self.query(self.root_node, types='function_definition', nest=False)
+        self.function_nodes = self.query(self.root_node, types='function_definition', nest=False)
         self.functions = {}
-        for node in function_nodes:
+        for node in self.function_nodes:
             funcnode = self.query(node, types='function_declarator', nest=False)[0]
             funcname = text(funcnode.child_by_field_name('declarator'))
             self.functions[funcname] = node
@@ -211,8 +211,8 @@ class AST:
         return self.root_node.has_error
 
 if __name__ == '__main__':
-    code = r'{}'.format(open('test.c', 'r', encoding='utf-8').read())
+    code = r'{}'.format(open('./data/CVE-2013-4483_SYSCALL-DEFINE4/CVE-2013-4483_CWE-189_SYSCALL-DEFINE4_1.c_OLD.c', 'r', encoding='utf-8').read())
     ast = AST('c', code)
-    ast.see_graph(view=True)
+    ast.see_graph(view=False)
     # print(ast.tokenize())
     # ast.check_syntax()

@@ -108,13 +108,15 @@ class DIFF():
         old_lines, new_lines, func_names = [], [], []
         for block in diff_blocks:
             diff_info = block[0].split('@@')[1].strip()
-            function = block[0].split('@@')[2]
-            #TODO 从diff hunk头中获取函数名（可能不准确）
-            func_name = function.split('(')[0].split(' ')[-1].replace('*', '').replace(' ','') 
-            func_names.append(func_name)
             old, new = diff_info.split(' ')
             old_start_line = int(old[1:].split(',')[0])
             new_start_line = int(new[1:].split(',')[0])
+            # 通过old行号在old.c文件中获取函数名
+            for node in self.old_ast.function_nodes:
+                if old_start_line > node.start_point[0] and old_start_line < node.end_point[0]:
+                    funcnode = self.old_ast.query(node, types='function_declarator', nest=False)[0]
+                    func_name = text(funcnode.child_by_field_name('declarator'))
+                    func_names.append(func_name)
             old_offset, new_offset = 0, 0
             old_line, new_line = [], []
             for line in block[1:]:
