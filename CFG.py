@@ -182,6 +182,7 @@ class CFG(AST):
             body = node.child_by_field_name('body')     # 获取switch的主体部分
             in_nodes = [(switch_node_info, '')]     # case的入节点
             for case_node in body.children[1:-1]:
+                if case_node.type == 'comment' : continue # case_node是comment导致数组下标越界
                 if case_node.children[0].type == 'case': # 如果为case
                     index = 3
                     case_name = text(case_node.child_by_field_name('value'))
