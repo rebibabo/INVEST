@@ -4,7 +4,7 @@ from typing import Dict
 import difflib
 from collections import defaultdict
 import logging
-from config import *
+import copy
 
 def Identifier(node):
     ids = set()
@@ -238,17 +238,20 @@ class DIFF():
                         new_cv_dict.pop(new_cv.line)
                         break
                     else:
-                        # 2. 如果代码相似度较高,则只保留有差异的cv
+                        # 2. 如果代码相似度较高,则只保留有差异的cv,如果去重后cv为空，则保留old中的cv
                         match_level = difflib.SequenceMatcher(None,old_code,new_code).quick_ratio()
                         if match_level > 0.6: 
                             old_line_cvs = old_cv_dict.get(old_cv.line)
                             new_line_cvs = new_cv_dict.get(new_cv.line)
+                            old_line_cvs_tmp = copy.deepcopy(old_line_cvs)
                             for cv in old_line_cvs:
                                 for cv2 in new_line_cvs:
                                     if cv == cv2:
                                         old_line_cvs.remove(cv)
                                         new_line_cvs.remove(cv2)
                                         break
+                            if old_line_cvs==[]and new_line_cvs==[]:
+                                old_cv_dict[old_cv.line] = old_line_cvs_tmp            
                         else:
                             # 3. 上述都不满足，则删除new中的cv
                             new_cv_dict[new_cv.line].remove(new_cv)
