@@ -4,6 +4,7 @@ from typing import Dict
 import difflib
 from collections import defaultdict
 import logging
+from config import *
 
 def Identifier(node):
     ids = set()
@@ -76,6 +77,7 @@ class DIFF():
             for i in range(0,len(func_names)):
                 old_func = self.old_ast.functions[func_names[i]]
                 new_func = self.new_ast.functions[func_names[i]]
+                old_cv_dict, new_cv_dict = {},{}
                 if old_lines[i]:
                     old_cv_dict =  self.get_cruial_variable_lines(old_lines[i], old_func, "delete")
                 if new_lines[i]:
