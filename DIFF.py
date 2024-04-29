@@ -61,6 +61,7 @@ class CV():
 class DIFF():
     def __init__(self, language, old_code, new_code, diff_path):
         self.language = language
+        self.diff_path = diff_path #主要用于记录报错信息
         self.old_codes = old_code.split('\n')
         self.new_codes = new_code.split('\n')
         self.old_ast = AST(language, old_code)
@@ -70,24 +71,33 @@ class DIFF():
         self.new_cv = defaultdict(list)
         with open(diff_path, 'r', encoding='utf-8') as f:
             diff_lines = f.readlines()
-        old_lines, new_lines, func_names = self.preprocess(diff_lines)
-        if len(func_names)==0:
-            logging.debug(f"this diff file has no motified function in {diff_path}") # 存在只修改结构体定义等情况
-        else:
-            for i in range(0,len(func_names)):
-                old_func = self.old_ast.functions[func_names[i]]
-                new_func = self.new_ast.functions[func_names[i]]
-                old_cv_dict, new_cv_dict = {},{}
-                if old_lines[i]:
-                    old_cv_dict =  self.get_cruial_variable_lines(old_lines[i], old_func, "delete")
-                if new_lines[i]:
-                    new_cv_dict = self.get_cruial_variable_lines(new_lines[i], new_func, "add")
-                # 对关键变量匹配结果进行去重
-                self.remove_duplicates(old_cv_dict,new_cv_dict)
-                self.old_cv.update(old_cv_dict)
-                self.new_cv.update(new_cv_dict)
-        self.old_cv = {k:v for k,v in self.old_cv.items() if v != []}
-        self.new_cv = {k:v for k,v in self.new_cv.items() if v != []}
+        if diff_lines == []:
+            logging.debug(f"this diff is empty! {diff_path}")
+        else: 
+            old_lines, new_lines, func_names = self.preprocess(diff_lines)
+            if len(func_names)==0:
+                logging.debug(f"this diff file has no motified function in {diff_path}") # 存在只修改结构体定义等情况
+            else:
+                #TODO func_names 可以进一步去重，提高效率
+                for i in range(0,len(func_names)):
+                    old_func = self.old_ast.functions[func_names[i]]
+                    if func_names[i] not in self.new_ast.functions.keys():
+                        logging.debug(f"new file analysis find no func in  {diff_path}")
+                    else: 
+                        new_func = self.new_ast.functions[func_names[i]]
+                        old_cv_dict, new_cv_dict = {},{}
+                        if old_lines[i]:
+                            old_cv_dict =  self.get_cruial_variable_lines(old_lines[i], old_func, "delete")
+                        if new_lines[i]:
+                            new_cv_dict = self.get_cruial_variable_lines(new_lines[i], new_func, "add")
+                        # 对关键变量匹配结果进行去重
+                        old_cv_dict = {k:v for k,v in old_cv_dict.items() if v != []}
+                        new_cv_dict = {k:v for k,v in new_cv_dict.items() if v != []}
+                        self.remove_duplicates(old_cv_dict,new_cv_dict)
+                        self.old_cv.update(old_cv_dict)
+                        self.new_cv.update(new_cv_dict)
+            self.old_cv = {k:v for k,v in self.old_cv.items() if v != []}
+            self.new_cv = {k:v for k,v in self.new_cv.items() if v != []}
     
     def __str__(self) -> str:
         old = ''
@@ -121,9 +131,12 @@ class DIFF():
             func_name = ''
             for node in self.old_ast.function_nodes:
                 if old_start_line > node.start_point[0] and old_start_line < node.end_point[0]:
-                    funcnode = self.old_ast.query(node, types='function_declarator', nest=False)[0]
-                    func_name = text(funcnode.child_by_field_name('declarator'))
-                    func_names.append(func_name)
+                    if len(self.old_ast.query(node, types='function_declarator', nest=False)) == 0:
+                        logging.debug(f"this hunk donot find a function {diff_info} {node.text}")
+                    else:
+                        funcnode = self.old_ast.query(node, types='function_declarator', nest=False)[0]
+                        func_name = text(funcnode.child_by_field_name('declarator'))
+                        func_names.append(func_name)
             if func_name == '':
                 logging.debug(f'can not get func_name for this diff_hunk: {diff_info}')
             old_offset, new_offset = 0, 0
@@ -150,7 +163,7 @@ class DIFF():
             ast_node = self.new_ast
         def helper(node):
             id_nodes = defaultdict(list)
-            if node.type == 'function_declarator':
+            if node.type == 'function_declarator' and node.parent != None and node.parent.type != 'pointer_declarator':
                 param_nodes = ast_node.query(node, 'parameter_declaration')
                 for param_node in param_nodes:
                     ids = Identifier(param_node)
@@ -244,19 +257,38 @@ class DIFF():
                             old_line_cvs = old_cv_dict.get(old_cv.line)
                             new_line_cvs = new_cv_dict.get(new_cv.line)
                             old_line_cvs_tmp = copy.deepcopy(old_line_cvs)
+                            if new_line_cvs == None or old_line_cvs == None: # 不清楚为什么有的cv对应的行在keys中没有
+                                continue
                             for cv in old_line_cvs:
                                 for cv2 in new_line_cvs:
                                     if cv == cv2:
                                         old_line_cvs.remove(cv)
                                         new_line_cvs.remove(cv2)
+                                        logging.info(f'the change_code is same in {self.diff_path}')
                                         break
+                                if new_line_cvs==[]or old_line_cvs==[]:
+                                    break
                             if old_line_cvs==[]and new_line_cvs==[]:
                                 old_cv_dict[old_cv.line] = old_line_cvs_tmp            
                         else:
                             # 3. 上述都不满足，则删除new中的cv
-                            new_cv_dict[new_cv.line].remove(new_cv)
+                            if new_cv.line in new_cv_dict.keys() and new_cv in new_cv_dict[new_cv.line]:
+                                new_cv_dict[new_cv.line].remove(new_cv)
                     break
-     
+    def to_json(self):
+        cv_result = {}
+        cv_result['old'] = {}
+        cv_result['new'] = {}
+        for k,vs in self.old_cv.items():
+            cv_result['old'][k] = []
+            for v in vs:
+               cv_result['old'][k].append(v.var) 
+        for k,vs in self.new_cv.items():
+            cv_result['new'][k] = []
+            for v in vs:
+               cv_result['new'][k].append(v.var) 
+        return cv_result
+         
 if __name__ == '__main__':
     old_code = r'{}'.format(open('./data/CVE-2013-6376_recalculate-apic-map/CVE-2013-6376_CWE-189_recalculate-apic-map_1.c_OLD.c', 'r', encoding='utf-8').read())
     new_code = r'{}'.format(open('./data/CVE-2013-6376_recalculate-apic-map/CVE-2013-6376_CWE-189_recalculate-apic-map_1.c_NEW.c', 'r', encoding='utf-8').read())

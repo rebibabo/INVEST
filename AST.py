@@ -60,7 +60,7 @@ def define_replace(body, *params):  # 宏替换，输入宏的定义和参数，
 def remove_comments_and_include(code):
     '''删除代码中的注释和#include'''
     code = re.sub(r'//.*?(\n|$)', '\n', code)   # 删除单行注释
-    code = re.sub(r'/\*.*?\*/', '', code, flags=re.S)  # 删除多行注释
+    code = re.sub(r'/\*.*?\*/', '', code, flags=re.S)  # 删除多行注释 /* Skip blocks */
     code = re.sub(r'#include.*?(\n|$)', '', code)  # 删除#include
     return code
 
@@ -86,7 +86,9 @@ class AST:
         self.function_nodes = self.query(self.root_node, types='function_definition', nest=False)
         self.functions = {}
         for node in self.function_nodes:
-            funcnode = self.query(node, types='function_declarator', nest=False)[0]
+            if len(self.query(node, types='function_declarator', nest=False)) == 0:
+                continue
+            funcnode = self.query(node, types='function_declarator', nest=False)[0] # 越界？
             funcname = text(funcnode.child_by_field_name('declarator'))
             self.functions[funcname] = node
         self.func_num = len(self.functions)
