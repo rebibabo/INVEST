@@ -1,20 +1,25 @@
 from CFG import *
 from graphviz import Graph
 import copy
+from typing import Set
 
 class Identifier:
-    def __init__(self, expression_node):
+    ids: Set[str] = set()             # 普通变量
+    index_ids: Set[str] = set()       # 数组索引   定义和使用时，作为use
+    def_ids: Set[str] = set()         # 定义变量   定义时，作为def，使用时，排除在外
+    field_ids: Set[str] = set()       # 结构体变量 定义时，作为一整个变量保存，使用时，要有所有前置成员的信息
+    array_ids: Set[str] = set()       # 数组变量   定义时，只保留数组的名字，使用时，所有维度都要有信息流
+
+    def __init__(self, expression_node: Node):
         # 输入利于a->b.c的变量
         self.expression_node = expression_node
-        self.ids = set()            # 普通变量
-        self.index_ids = set()      # 数组索引   定义和使用时，作为use
-        self.def_ids = set()        # 定义变量   定义时，作为def，使用时，排除在外
-        self.field_ids = set()      # 结构体变量 定义时，作为一整个变量保存，使用时，要有所有前置成员的信息
-        self.array_ids = set()      # 数组变量   定义时，只保留数组的名字，使用时，所有维度都要有信息流
         self.traverse(expression_node)
         self.ids |= self.ids | self.field_ids | self.array_ids
 
-    def traverse(self, node, type=''):
+    def traverse(self, 
+        node: Node, 
+        type: str = ''
+    ) -> None:
         if not node:
             return
         if node.type == 'identifier' and node.parent.type != 'call_expression':
@@ -83,15 +88,18 @@ class Identifier:
     def __str__(self):
         return 'ids: {}\nindex_ids: {}\ndef_ids: {}\nfield_ids: {}\narray_ids: {}\n'.format(list(self.ids), list(self.index_ids), list(self.def_ids), list(self.field_ids), list(self.array_ids))
         
+STATE = Dict[str, Set[int]]
+
 class DDG:
-    def __init__(self, cfg):
+    dict: Set[Tuple[str, int, int]] = set() # def -> use
+
+    def __init__(self, cfg: CFG_GRAPH):
         self.cfg = cfg
         self.ddgs = copy.deepcopy(self.cfg.cfgs)
-        self.dict = set()
         for ddg in self.ddgs.values():
             ddg.delete_edges(ddg.get_edgelist())
 
-    def init_func_state(self, func_node):
+    def init_func_state(self, func_node: Node) -> STATE:
         param_nodes = self.cfg.query(func_node, types='parameter_declaration', nest=False)
         out_state = {}
         for param_node in param_nodes:
@@ -103,7 +111,7 @@ class DDG:
                 out_state = in_state
         return out_state
 
-    def create_ddg(self, node, in_state):
+    def create_ddg(self, node: Node, in_state: STATE) -> STATE:
         in_state = copy.deepcopy(in_state)
         if not node:
             return in_state
@@ -183,19 +191,17 @@ class DDG:
             # input(Id)
             for id in Id.ids:
                 self.add_def_use_edge(in_state, id, node.start_point[0] + 1)
-                
 
             for def_id in Id.def_ids:
                 self.add_def_use_edge(in_state, def_id, node.start_point[0] + 1)
                 in_state[def_id] = set([node.start_point[0] + 1])   # 对于这一行定义的节点，要Kill掉前面所有的定义状态
-
         # input(text(node))
         # input(in_state)
 
         out_state = in_state
         return out_state
 
-    def merge_state(self, in_state, *out_states):   # 合并多个状态，取并集
+    def merge_state(self, in_state: STATE, *out_states: List[STATE]) -> STATE:   # 合并多个状态，取并集
         out_state = in_state
         for state in out_states:
             for key, value in state.items():
@@ -205,13 +211,17 @@ class DDG:
                     out_state[key] = value
         return out_state
 
-    def add_def_use_edge(self, state, varname, cur_line):   # 增加def到use的边
+    def add_def_use_edge(self, 
+        state: STATE, 
+        varname: str, 
+        cur_line: int
+    ) -> None:   # 增加def到use的边
         if varname not in state:    
             return
         for line in state[varname]:
             self.dict.add((varname, line, cur_line))
 
-    def convert_dict_to_ddg(self, graph):
+    def convert_dict_to_ddg(self, graph: Graph) -> None:
         for varname, line1, line2 in self.dict:
             def_nodes = graph.vs.select(line=line1)
             use_nodes = graph.vs.select(line=line2)
@@ -230,7 +240,7 @@ class DDG:
             graph.simplify(combine_edges='first')
 
     @timer
-    def construct_ddg(self):
+    def construct_ddg(self) -> None:
         for i, (funcname, func_node) in enumerate(self.cfg.functions.items()):
             self.cfg.func_num = i
             funcname = text(self.cfg.query(func_node, types='function_declarator', nest=False)[0].child_by_field_name('declarator'))
@@ -243,7 +253,10 @@ class DDG:
             self.dict.clear()
         print(f'{"finish constructing DDG":-^70}')
 
-    def see_graph(self, pdf=True, view=True):
+    def see_graph(self, 
+        pdf: bool = True, 
+        view: bool = True
+    ) -> None:
         self.construct_ddg()
         for funcname, ddg in self.ddgs.items():
             print(funcname)

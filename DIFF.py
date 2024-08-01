@@ -1,7 +1,8 @@
 from CFG import *
+from typing import Set
 # diff文件格式参考 https://www.ruanyifeng.com/blog/2012/08/how_to_read_diff.html
 
-def Identifier(node):
+def Identifier(node: Node) -> Set[str]:
     ids = set()
     def helper(node):
         if not node:
@@ -39,7 +40,11 @@ def Identifier(node):
     return ids
 
 class DIFF(AST):
-    def __init__(self, language, code, diff_path):
+    def __init__(self, 
+        language: str, 
+        code: str, 
+        diff_path: str
+    ):
         self.language = language
         super().__init__(language, code)
         with open(diff_path, 'r', encoding='utf-8') as f:
@@ -49,7 +54,7 @@ class DIFF(AST):
             func_node = self.functions[func_names[i]]
             self.get_cruial_variable_lines(old_line, func_node)
 
-    def preprocess(self, diff):
+    def preprocess(self, diff: str) -> Tuple[List[int], List[int], List[str]]:
         diff_lines = diff.split('\n') 
         # 按照开头为@@切分不同的diff块
         diff_start_line = 4
@@ -85,7 +90,7 @@ class DIFF(AST):
             new_lines.append(new_line)
         return old_lines, new_lines, func_names
             
-    def get_cruial_variable_lines(self, lines, func_node):
+    def get_cruial_variable_lines(self, lines: List[int], func_node: Node) -> List[Dict[str, Union[str, int]]]:
         # 提取出某一行的关键变量，包含声明语句、赋值语句、函数调用语句和控制语句
         def helper(node):
             id_nodes = []

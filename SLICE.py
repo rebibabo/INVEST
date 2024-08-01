@@ -1,5 +1,6 @@
 from numpy import pi
 from PDG import *
+import igraph
 
 def sortedNodesByLoc(list_node):
     _list = []
@@ -15,7 +16,12 @@ def sortedNodesByLoc(list_node):
     return list_ordered_nodes
 
 class SLICE(PDG):
-    def __init__(self, language, code):
+    edges: Set = set()
+    visit_id: Set[int] = set()
+    result_nodes: List = []
+    slice: Graph = Graph(directed=True)
+
+    def __init__(self, language: str, code: str):
         self.pdg = PDG(language, code)
         self.pdg.construct_pdg()
         self.pdg.interprocedual_analysis()
@@ -23,12 +29,12 @@ class SLICE(PDG):
         # dot = self.draw_graph(self.pdg.ipdg)
         # dot.render('pdf/ipdg', view=True, cleanup=True, format='pdf')
         # self.pdg.ipdg = pickle.load(open('ipdg.pkl', 'rb'))
-        self.slice = Graph(directed=True)
-        self.visit_id = set()
-        self.edges = set()
-        self.result_nodes = []
 
-    def spread(self, node, cross_time, direction):
+    def spread(self, 
+        node: Node, 
+        cross_time: int,    # 跨函数层数
+        direction: Literal['forward', 'backward']   # 前向、后向
+    ) -> None:
         if cross_time == 0:
             return
         self.visit_id.add(node['id'])
@@ -76,7 +82,10 @@ class SLICE(PDG):
         return
 
     @timer
-    def get_slice(self, startlines, max_cross_time=3):
+    def get_slice(self, 
+        startlines: List[int], 
+        max_cross_time: int = 3
+    ) -> None:
         startnodes = self.pdg.ipdg.vs.select(lambda x: x['line'] in startlines)
         for startnode in startnodes:
             properties = startnode.attributes()

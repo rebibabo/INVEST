@@ -1,7 +1,7 @@
 from CFG import *
 import copy
 
-def reverse(cfg):
+def reverse(cfg: CFG_GRAPH) -> CFG_GRAPH:
     reverse_cfg = copy.deepcopy(cfg)
     reverse_cfg.delete_edges(reverse_cfg.get_edgelist())
     for edge in cfg.es:
@@ -12,7 +12,7 @@ def reverse(cfg):
     reverse_cfg.add_edge(exit_node, func_node, label='')  # 添加一个从Exit到函数入口的边
     return reverse_cfg
 
-def get_subTree(cfg):   # 按照广度优先遍历，找出一个子树
+def get_subTree(cfg: CFG_GRAPH) -> CFG_GRAPH:   # 按照广度优先遍历，找出一个子树
     exit_node = cfg.vs.find(type='function_exit')
     visited = {v.index:False for v in cfg.vs}
     queue = [exit_node]
@@ -30,7 +30,7 @@ def get_subTree(cfg):   # 按照广度优先遍历，找出一个子树
                 subTree.add_edge(node, succ, label='')
     return subTree
 
-def post_dominator_tree(cfg, subTree):  # 生成后支配树
+def post_dominator_tree(cfg: CFG_GRAPH, subTree: CFG_GRAPH) -> CFG_GRAPH:  # 生成后支配树
     PDT = copy.deepcopy(subTree)
     changed = True
     exit_node = cfg.vs.find(type='function_exit')
@@ -56,7 +56,7 @@ def post_dominator_tree(cfg, subTree):  # 生成后支配树
                     changed = True
     return PDT
 
-def dominance_frontier(reverse_cfg, PDT):   # 计算支配边界
+def dominance_frontier(reverse_cfg: CFG_GRAPH, PDT: CFG_GRAPH) -> CFG_GRAPH:   # 计算支配边界
     CDG = copy.deepcopy(reverse_cfg)
     CDG.delete_edges(CDG.get_edgelist())
     for v in reverse_cfg.vs:
@@ -69,12 +69,12 @@ def dominance_frontier(reverse_cfg, PDT):   # 计算支配边界
     return CDG
         
 class CDG:
-    def __init__(self, cfg):
+    def __init__(self, cfg: CFG_GRAPH):
         self.cfg = cfg
-        self.cdgs = {}
+        self.cdgs: Dict[str, CFG_GRAPH] = {}
 
     @timer
-    def construct_cdg(self):
+    def construct_cdg(self) -> None:
         # 参考文章 https://blog.csdn.net/Dong_HFUT/article/details/121492818?spm=wolai.workspace.0.0.477036c4rNeEPV
         for funcname, cfg in self.cfg.cfgs.items():
             print(f'constructing CDG for {funcname:>40}', end='\r')
@@ -85,7 +85,10 @@ class CDG:
             self.cdgs[funcname] = CDG
         print(f'{"finish constructing CDG":-^70}')
 
-    def see_graph(self, pdf=True, view=True):
+    def see_graph(self, 
+        pdf: bool = True, 
+        view: bool = True
+    ) -> None:
         self.construct_cdg()
         for funcname, cdg in self.cdgs.items():
             dot = Digraph(strict=True)

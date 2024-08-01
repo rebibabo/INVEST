@@ -3,10 +3,12 @@ from CFG import *
 from CDG import *
 from DDG import *
 from igraph import Graph
-import pickle
 
 class PDG(CFG):
-    def __init__(self, language, code):
+    pdgs: Dict[str, Graph] = {}         # 每个函数的PDG
+    ipdg: Graph = None                  # 跨函数PDG
+
+    def __init__(self, language: str, code: str):
         super().__init__(language, code)
         self.construct_cfg()
         self.ddg = DDG(self)
@@ -15,11 +17,9 @@ class PDG(CFG):
         self.cdg.construct_cdg()
         self.cg = CG(self)
         self.cg.construct_cg()
-        self.pdgs = {} 
-        self.ipdg = None 
 
     @timer
-    def construct_pdg(self):
+    def construct_pdg(self) -> None:
         for funcname, cfg in self.cfgs.items():
             print(f'constructing PDG for {funcname:>40}', end='\r')
             ddg, cdg = self.ddg.ddgs[funcname], self.cdg.cdgs[funcname]
@@ -33,7 +33,7 @@ class PDG(CFG):
                 self.pdgs[funcname].add_edge(src, tgt, label='', type='CDG')
         print(f'{"finish constructing PDG":-^70}')
 
-    def print_graph(self, graph):
+    def print_graph(self, graph: Graph) -> None:
         for node in graph.vs:
             print(node.index, node.attributes())
         for edge in graph.es:
@@ -41,7 +41,7 @@ class PDG(CFG):
         print('---------------------------------')
     
     @timer
-    def interprocedual_analysis(self, save=False):  # 进行跨函数分析，加上了call边和return边，其中call边为第i个实参所使用的变量到第i个形参，return边为返回值到调用点
+    def interprocedual_analysis(self, save: bool = False) -> None:  # 进行跨函数分析，加上了call边和return边，其中call边为第i个实参所使用的变量到第i个形参，return边为返回值到调用点
         print(f'{"constructing interprocedual PDG":-^70}')
         edges, e_properties = [], {'type':[], 'label':[]}
         ipdg = Graph(directed=True)
@@ -72,7 +72,7 @@ class PDG(CFG):
         ipdg.add_edges(edges, e_properties)
         self.ipdg = ipdg
 
-    def draw_graph(self, graph):
+    def draw_graph(self, graph: Graph) -> Digraph:
         dot = Digraph()
         for node in graph.vs:
             label = html.escape(node['text']) + '\\n' + f"{node['type']} | {node['line']}"
@@ -97,7 +97,11 @@ class PDG(CFG):
             dot.edge(graph.vs[edge.source]['id'], graph.vs[next_node]['id'], label=label)
         return dot
 
-    def see_graph(self, pdf=True, view=False, save=False):
+    def see_graph(self, 
+        pdf: bool = True, 
+        view: bool = False, 
+        save: bool = False
+    ) -> None:
         if not self.ipdg:
             for funcname, pdg in self.pdgs.items():
                 # print(funcname)

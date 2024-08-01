@@ -1,7 +1,13 @@
 from AST import *
 import html
+from typing import Callable, Literal, Dict, List, Any, Tuple, Union, TypedDict
 
-def get_break_continue_node(node):
+NodeInfo = Dict[str, Union[str, int, bool, List[Tuple[int, int]]]]
+Edges = List[Tuple[str, str]]
+Nodes = List[Tuple[NodeInfo, str]]
+CFG_GRAPH = List[Tuple[NodeInfo, Edges]]
+
+def get_break_continue_node(node: Node) -> Tuple[List[Node], List[Node]]:
     # 找到node节点循环中的所有break和continue节点并返回
     break_nodes, continue_nodes = [], []
     for child in node.children:
@@ -15,7 +21,7 @@ def get_break_continue_node(node):
             continue_nodes.extend(c_nodes)
     return break_nodes, continue_nodes
 
-def get_edge(in_nodes):
+def get_edge(in_nodes: Nodes) -> Edges:
     # 输入入节点，返回入边的列表，边为(parent_id, label)
     edge = []     
     for in_node in in_nodes:   
@@ -25,11 +31,12 @@ def get_edge(in_nodes):
     return edge
 
 class CFG(AST):
-    def __init__(self, language, code):
-        super().__init__(language, code)
-        self.cfgs = {}  # 存放每一个函数的CFG图
+    cfgs: Dict[str, Graph] = {} # 存放每一个函数的CFG图
 
-    def properties(self, node):
+    def __init__(self, language: str, code: str):
+        super().__init__(language, code)
+
+    def properties(self, node: Node) -> NodeInfo:
         node_prop = super().properties(node)
         node_prop['is_branch'] = False
         if node.type == 'function_definition':
@@ -65,7 +72,11 @@ class CFG(AST):
             node_prop['text'] = text(node)
         return node_prop
 
-    def create_cfg(self, node, in_nodes=[()]):
+    def create_cfg(self, 
+        node: Node, 
+        in_nodes: Nodes = [()]
+    ) -> Tuple[CFG_GRAPH, Nodes]:
+            # CFG       node_info, edge_label(p_id, label)   out_nodes(node_info, label)
         # 输入当前节点，以及入节点，入节点为(node_info, edge_label)的列表，node_info['id']唯一确定一个节点，edge_label为边的标签
         if node.type == 'labeled_statement':  # 如果是label: statement语句
             CFG = []            
@@ -207,12 +218,12 @@ class CFG(AST):
                 in_nodes = out_nodes + [(switch_node_info, '')] # 下一条case语句的入节点为当前case最后一条语句的out_nodes加上switch到case的边
             return CFG, all_out_nodes + out_nodes   # 最终返回switch语句所有的break节点和最后一条case的out_nodes
 
-    def convert_cfg_to_graph(self, cfg):
+    def convert_cfg_to_graph(self, cfg: CFG_GRAPH) -> Graph:
         # 将CFG转换为iGraph，并加上exit节点
         graph = Graph(directed=True)
         node_ids = set()
         node_ids_with_out_edge = set()   # 有出边的节点
-        condition_nodes = {}    # 保存条件节点, 如果条件语句只有一个分支，则将另一个分支指向exit节点
+        condition_nodes: Dict[str, List[str]] = {}    # 保存条件节点, 如果条件语句只有一个分支，则将另一个分支指向exit节点
         for end, edges in cfg:
             if end['id'] not in node_ids:
                 node_ids.add(end['id'])
@@ -231,7 +242,7 @@ class CFG(AST):
         # 删除死代码，即不是函数入口节点且入度为0的节点
         delete_nodes = graph.vs.select(lambda x: x['type'] != 'function_definition' and x.indegree() == 0)
         while len(delete_nodes) > 0:
-            delete_ids = []
+            delete_ids: List[int] = []
             for node in delete_nodes:
                 delete_ids.append(node.index)
             graph.delete_vertices(delete_ids)
@@ -246,7 +257,7 @@ class CFG(AST):
         return graph
 
     @timer
-    def construct_cfg(self):
+    def construct_cfg(self) -> None:
         for i, (funcname, func_node) in enumerate(self.functions.items()):
             self.func_num = i
             print(f'constructing CDG for {funcname:>40}', end='\r')
@@ -256,7 +267,7 @@ class CFG(AST):
             self.cfgs[funcname] = self.convert_cfg_to_graph(cfg)
         print(f'{"finish constructing CFG":-^70}')
 
-    def draw_graph(self, graph):
+    def draw_graph(self, graph: Graph) -> Digraph:
         dot = Digraph()
         for node in graph.vs:
             label = html.escape(node['text']) + '\\n' + f"{node['type']} | {node['line']}"
@@ -273,7 +284,10 @@ class CFG(AST):
             dot.edge(graph.vs[edge.source]['id'], graph.vs[next_node]['id'], label=label)
         return dot
 
-    def see_graph(self, pdf=True, view=False):
+    def see_graph(self, 
+        pdf: bool = True, 
+        view: bool = False
+    ) -> Dict[str, Graph]:
         self.construct_cfg()
         for funcname, cfg in self.cfgs.items():
             dot = self.draw_graph(cfg)
