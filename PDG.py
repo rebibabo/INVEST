@@ -107,15 +107,15 @@ class PDG(CFG):
                 # print(funcname)
                 dot = self.draw_graph(pdg)
                 if pdf:
-                    dot.render('pdf/' + funcname, view=view, cleanup=True)
+                    dot.render(path +'/'+funcname, view=view, cleanup=True)
         else:
             dot = self.draw_graph(self.ipdg)
             if pdf:
-                dot.render('pdf/ipdg', view=view, cleanup=True)
+                dot.render(path+'/ipdg', view=view, cleanup=True)
 
 if __name__ == '__main__':
-    code = r'{}'.format(open('test.c', 'r', encoding='utf-8').read())
+    code = r'{}'.format(open('./data/CVE-2013-4483_SYSCALL-DEFINE4/CVE-2013-4483_CWE-189_SYSCALL-DEFINE4_1.c_OLD.c', 'r', encoding='utf-8').read())
     pdg = PDG('c', code)
     pdg.construct_pdg()
     pdg.interprocedual_analysis(save=False)
-    pdg.see_graph(view=True)
+    pdg.see_graph(view=False)

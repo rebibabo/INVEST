@@ -82,10 +82,7 @@ class SLICE(PDG):
         return
 
     @timer
-    def get_slice(self, 
-        startlines: List[int], 
-        max_cross_time: int = 3
-    ) -> None:
+    def get_slice(self, startlines, max_cross_time=3):
         startnodes = self.pdg.ipdg.vs.select(lambda x: x['line'] in startlines)
         for startnode in startnodes:
             properties = startnode.attributes()
@@ -96,12 +93,12 @@ class SLICE(PDG):
             self.visit_id.remove(startnode['id'])
             self.spread(startnode, 3, 'forward')
         dot = self.draw_graph(self.slice)
-        dot.render('pdf/slice', view=True, cleanup=True, format='pdf')
+        dot.render(path, view=False, cleanup=True, format='pdf') # docker中没有可以打开pdf的软件，所以不能view
         for node in self.result_nodes:
             print(node['text'], node['line'])
 
 if __name__ == '__main__':
-    code = r'{}'.format(open('test.c', 'r', encoding='utf-8').read())
+    code = r'{}'.format(open('./data/CVE-2013-4483_SYSCALL-DEFINE4/CVE-2013-4483_CWE-189_SYSCALL-DEFINE4_1.c_OLD.c', 'r', encoding='utf-8').read())
     slice = SLICE('c', code)
-    slice.get_slice([88, 89, 90, 91, 92])
+    slice.get_slice([66],'pdf/slice.pdf')
     

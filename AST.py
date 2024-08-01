@@ -68,7 +68,7 @@ def define_replace(
 def remove_comments_and_include(code: str) -> str:
     '''删除代码中的注释和#include'''
     code = re.sub(r'//.*?(\n|$)', '\n', code)   # 删除单行注释
-    code = re.sub(r'/\*.*?\*/', '', code, flags=re.S)  # 删除多行注释
+    code = re.sub(r'/\*.*?\*/', '', code, flags=re.S)  # 删除多行注释 /* Skip blocks */
     code = re.sub(r'#include.*?(\n|$)', '', code)  # 删除#include
     return code
 
@@ -102,6 +102,7 @@ class AST:
         self.code = code
         self.root_node = self.parser.parse(bytes(code, 'utf8')).root_node
         function_nodes = self.query(self.root_node, types='function_definition', nest=False)
+        self.functions = {}
         for node in function_nodes:
             funcnode = self.query(node, types='function_declarator', nest=False)[0]
             funcname = text(funcnode.child_by_field_name('declarator'))
@@ -240,8 +241,8 @@ class AST:
         return self.root_node.has_error
 
 if __name__ == '__main__':
-    code = r'{}'.format(open('test.c', 'r', encoding='utf-8').read())
+    code = r'{}'.format(open('./data/CVE-2013-4483_SYSCALL-DEFINE4/CVE-2013-4483_CWE-189_SYSCALL-DEFINE4_1.c_OLD.c', 'r', encoding='utf-8').read())
     ast = AST('c', code)
-    ast.see_graph(view=True)
+    ast.see_graph(view=False)
     # print(ast.tokenize())
     # ast.check_syntax()

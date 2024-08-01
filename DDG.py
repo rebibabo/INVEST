@@ -175,6 +175,7 @@ class DDG:
             int_state_copy = copy.deepcopy(in_state)
             states = []
             for case_node in body.children[1:-1]:
+                if case_node.type == 'comment' : continue # case_node是comment导致数组下标越界
                 index = 3 if case_node.children[0].type == 'case' else 2
                 case_value  = case_node.child_by_field_name('value')
                 if case_value:
