@@ -2,12 +2,13 @@ from CFG import *
 from DDG import Identifier
 
 class CG(AST):
-    def __init__(self, cfg):
+    func_properties: Dict[str, Union[str, int, List[Dict[str, Union[str, int]]]]] = {}
+    call_edge: Dict[str, List[str]] = {}
+    return_edge: Dict[str, List[str]] = {}
+    cg: Graph = Graph(directed=True)
+
+    def __init__(self, cfg: CFG_GRAPH):
         self.cfg = cfg
-        self.cg = Graph(directed=True)
-        self.func_properties = {}
-        self.call_edge = {}
-        self.return_edge = {}
 
     @timer
     def construct_cg(self):
@@ -50,7 +51,10 @@ class CG(AST):
         self.cg.add_edges(edges)    # 一次性添加所有边比一个一个添加边要快得多
         print(f'{"finish constructing C G":-^70}')
  
-    def see_graph(self, pdf=True, view=True):
+    def see_graph(self, 
+        pdf: bool = True, 
+        view: bool = True
+    ) -> None:
         self.construct_cg()
         dot = Digraph(strict=True)
         for node in self.cg.vs:
