@@ -4,14 +4,13 @@ import copy
 from typing import Set
 
 class Identifier:
-    ids: Set[str] = set()             # 普通变量
-    index_ids: Set[str] = set()       # 数组索引   定义和使用时，作为use
-    def_ids: Set[str] = set()         # 定义变量   定义时，作为def，使用时，排除在外
-    field_ids: Set[str] = set()       # 结构体变量 定义时，作为一整个变量保存，使用时，要有所有前置成员的信息
-    array_ids: Set[str] = set()       # 数组变量   定义时，只保留数组的名字，使用时，所有维度都要有信息流
-
     def __init__(self, expression_node: Node):
         # 输入利于a->b.c的变量
+        self.ids: Set[str] = set()             # 普通变量  定义和使用时，作为use
+        self.index_ids: Set[str] = set()       # 数组索引   定义和使用时，作为use
+        self.def_ids: Set[str] = set()         # 定义变量   定义时，作为def，使用时，排除在外
+        self.field_ids: Set[str] = set()       # 结构体变量 定义时，作为一整个变量保存，使用时，要有所有前置成员的信息
+        self.array_ids: Set[str] = set()       # 数组变量   定义时，只保留数组的名字，使用时，所有维度都要有信息流
         self.expression_node = expression_node
         self.traverse(expression_node)
         self.ids |= self.ids | self.field_ids | self.array_ids
@@ -192,7 +191,7 @@ class DDG:
             # input(Id)
             for id in Id.ids:
                 self.add_def_use_edge(in_state, id, node.start_point[0] + 1)
-
+            
             for def_id in Id.def_ids:
                 self.add_def_use_edge(in_state, def_id, node.start_point[0] + 1)
                 in_state[def_id] = set([node.start_point[0] + 1])   # 对于这一行定义的节点，要Kill掉前面所有的定义状态
@@ -250,7 +249,6 @@ class DDG:
             body = func_node.child_by_field_name('body')
             self.create_ddg(body, init_state)
             self.convert_dict_to_ddg(self.ddgs[funcname])
-            # print(self.dict)
             self.dict.clear()
         print(f'{"finish constructing DDG":-^70}')
 
@@ -274,7 +272,7 @@ if __name__ == '__main__':
     ddg = DDG(cfg)
     ddg.construct_ddg()
     ddg.see_graph(view=True)
-    code = '&h->pkt.nals[i]'
-    tree_node = ddg.cfg.parser.parse(code.encode('utf-8')).root_node
-    id = Identifier(tree_node)
-    print(id)
+    # code = '&h->pkt.nals[i]'
+    # tree_node = ddg.cfg.parser.parse(code.encode('utf-8')).root_node
+    # id = Identifier(tree_node)
+    # print(id)
